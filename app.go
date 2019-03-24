@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -20,8 +21,30 @@ import (
 var conf = config.Config{}
 var client *mongo.Client
 
-func allMoviesEndPoint(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, 1+1)
+func allMoviesEndPoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("content-type", "application/json")
+	var movies []models.Movie
+	collection := client.Database(conf.Database).Collection("movie")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cursor, err := collection.Find(ctx, bson.M{})
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+		return
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var movie models.Movie
+		cursor.Decode(&movie)
+		movies = append(movies, movie)
+	}
+	if err := cursor.Err(); err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+		return
+	}
+	json.NewEncoder(response).Encode(movies)
 }
 
 func findMovieEndpoint(response http.ResponseWriter, request *http.Request) {
