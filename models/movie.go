@@ -6,8 +6,7 @@ import (
 
 // Movie is representation of movie entity in mongodb
 type Movie struct {
-	ID   primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Name string             `bson:"name,omitempty" json:"name,omitempty"`
-	//CoverImage  string             `bson:"cover_image,omitempty" json:"cover_image,omitempty"`
-	Description string `bson:"description,omitempty" json:"description,omitempty"`
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Name        string             `bson:"name,omitempty" json:"name,omitempty"`
+	Description string             `bson:"description,omitempty" json:"description,omitempty"`
 }
