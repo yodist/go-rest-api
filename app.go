@@ -75,8 +75,24 @@ func createMovieEndPoint(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(result)
 }
 
-func updateMovieEndPoint(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "not implemented yet !")
+func updateMovieEndPoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("content-type", "application/json")
+	params := mux.Vars(request)
+	id, _ := primitive.ObjectIDFromHex(params["id"])
+	var movie models.Movie
+	_ = json.NewDecoder(request.Body).Decode(&movie)
+	collection := client.Database(conf.Database).Collection("movie")
+	filter := bson.D{{"_id", id}}
+	update := bson.D{
+		{"$set", movie},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	result, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		log.Fatal(err)
+	}
+	json.NewEncoder(response).Encode(result)
 }
 
 func deleteMovieEndPoint(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +112,7 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/movies", allMoviesEndPoint).Methods("GET")
 	r.HandleFunc("/movies", createMovieEndPoint).Methods("POST")
-	r.HandleFunc("/movies", updateMovieEndPoint).Methods("PUT")
+	r.HandleFunc("/movies/{id}", updateMovieEndPoint).Methods("PUT")
 	r.HandleFunc("/movies", deleteMovieEndPoint).Methods("DELETE")
 	r.HandleFunc("/movies/{id}", findMovieEndpoint).Methods("GET")
 	if err := http.ListenAndServe(":3000", r); err != nil {
