@@ -29,8 +29,10 @@ func allMoviesEndPoint(response http.ResponseWriter, request *http.Request) {
 	defer cancel()
 	cursor, err := collection.Find(ctx, bson.M{})
 	if err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+		response.WriteHeader(http.StatusBadRequest)
+		res := models.Response{Status: http.StatusBadRequest, StatusCode: 1, Message: err.Error()}
+		json.NewEncoder(response).Encode(res)
+		log.Println(err)
 		return
 	}
 	defer cursor.Close(ctx)
@@ -40,39 +42,86 @@ func allMoviesEndPoint(response http.ResponseWriter, request *http.Request) {
 		movies = append(movies, movie)
 	}
 	if err := cursor.Err(); err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+		response.WriteHeader(http.StatusBadRequest)
+		res := models.Response{Status: http.StatusBadRequest, StatusCode: 1, Message: err.Error()}
+		json.NewEncoder(response).Encode(res)
+		log.Println(err)
 		return
 	}
-	json.NewEncoder(response).Encode(movies)
+	res := models.Response{Data: movies, Status: http.StatusOK, StatusCode: 0, Message: "Success"}
+	json.NewEncoder(response).Encode(res)
 }
 
 func findMovieEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
+
 	params := mux.Vars(request)
 	id, _ := primitive.ObjectIDFromHex(params["id"])
 	var movie models.Movie
 	collection := client.Database(conf.Database).Collection("movie")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	err := collection.FindOne(ctx, models.Movie{ID: id}).Decode(&movie)
+	err := collection.FindOne(ctx, bson.D{{"_id", id}}).Decode(&movie)
 	if err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{ "message": "` + err.Error() + `" }`))
+		response.WriteHeader(http.StatusBadRequest)
+		res := models.Response{Status: http.StatusBadRequest, StatusCode: 1, Message: err.Error()}
+		json.NewEncoder(response).Encode(res)
+		log.Println(err)
 		return
 	}
-	json.NewEncoder(response).Encode(movie)
+
+	res := models.Response{Data: movie, Status: http.StatusOK, StatusCode: 0, Message: "Success"}
+	json.NewEncoder(response).Encode(res)
 }
 
 func createMovieEndPoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	var movie models.Movie
-	_ = json.NewDecoder(request.Body).Decode(&movie)
+	err := json.NewDecoder(request.Body).Decode(&movie)
 	collection := client.Database(conf.Database).Collection("movie")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	result, _ := collection.InsertOne(ctx, movie)
-	json.NewEncoder(response).Encode(result)
+	_, err = collection.InsertOne(ctx, movie)
+	if err != nil {
+		response.WriteHeader(http.StatusBadRequest)
+		res := models.Response{Status: http.StatusBadRequest, StatusCode: 1, Message: err.Error()}
+		json.NewEncoder(response).Encode(res)
+		log.Println(err)
+		return
+	}
+	res := models.Response{Data: movie, Status: http.StatusOK, StatusCode: 0, Message: "Success"}
+	json.NewEncoder(response).Encode(res)
+}
+
+func createMultipleMovieEndPoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("content-type", "application/json")
+	var movies []models.Movie
+	err := json.NewDecoder(request.Body).Decode(&movies)
+	if err != nil {
+		response.WriteHeader(http.StatusBadRequest)
+		res := models.Response{Status: http.StatusBadRequest, StatusCode: 1, Message: err.Error()}
+		json.NewEncoder(response).Encode(res)
+		log.Println(err)
+		return
+	}
+	var moviesInterface []interface{}
+	for _, movie := range movies {
+		moviesInterface = append(moviesInterface, movie)
+	}
+	collection := client.Database(conf.Database).Collection("movie")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err = collection.InsertMany(ctx, moviesInterface)
+	if err != nil {
+		response.WriteHeader(http.StatusBadRequest)
+		res := models.Response{Status: http.StatusBadRequest, StatusCode: 1, Message: err.Error()}
+		json.NewEncoder(response).Encode(res)
+		log.Println(err)
+		return
+	}
+	res := models.Response{Data: movies, Status: http.StatusOK, StatusCode: 0, Message: "Success"}
+	json.NewEncoder(response).Encode(res)
 }
 
 func updateMovieEndPoint(response http.ResponseWriter, request *http.Request) {
@@ -88,11 +137,41 @@ func updateMovieEndPoint(response http.ResponseWriter, request *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	result, err := collection.UpdateOne(ctx, filter, update)
+	_, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {
-		log.Fatal(err)
+		response.WriteHeader(http.StatusBadRequest)
+		res := models.Response{Status: http.StatusBadRequest, StatusCode: 1, Message: err.Error()}
+		json.NewEncoder(response).Encode(res)
+		log.Println(err)
+		return
 	}
-	json.NewEncoder(response).Encode(result)
+	res := models.Response{Data: movie, Status: http.StatusOK, StatusCode: 0, Message: "Success"}
+	json.NewEncoder(response).Encode(res)
+}
+
+func updateMultipleMovieEndPoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("content-type", "application/json")
+	var movies []models.Movie
+	_ = json.NewDecoder(request.Body).Decode(&movies)
+
+	// collection := client.Database(conf.Database).Collection("movie")
+	// ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// defer cancel()
+
+	// var result
+
+	// for _, movie := range movies {
+	// 	filter := bson.D{{"_id", movie.ID}}
+	// 	update := bson.D{
+	// 		{"$set", movie},
+	// 	}
+	// 	result, err := collection.UpdateOne(ctx, filter, update)
+	// 	if err != nil {
+	// 		log.Println(err)
+	// 	}
+	// }
+
+	json.NewEncoder(response).Encode("Not Implemented")
 }
 
 func deleteMovieEndPoint(response http.ResponseWriter, request *http.Request) {
@@ -106,9 +185,14 @@ func deleteMovieEndPoint(response http.ResponseWriter, request *http.Request) {
 	defer cancel()
 	result, err := collection.DeleteOne(ctx, filter)
 	if err != nil {
-		log.Fatal(err)
+		response.WriteHeader(http.StatusBadRequest)
+		res := models.Response{Status: http.StatusBadRequest, StatusCode: 1, Message: err.Error()}
+		json.NewEncoder(response).Encode(res)
+		log.Println(err)
+		return
 	}
-	json.NewEncoder(response).Encode(result)
+	res := models.Response{Data: result, Status: http.StatusOK, StatusCode: 0, Message: "Success"}
+	json.NewEncoder(response).Encode(res)
 }
 
 func main() {
@@ -123,10 +207,12 @@ func main() {
 	// set endpoint
 	r := mux.NewRouter()
 	r.HandleFunc("/movies", allMoviesEndPoint).Methods("GET")
-	r.HandleFunc("/movies", createMovieEndPoint).Methods("POST")
+	r.HandleFunc("/movies/{id}", findMovieEndpoint).Methods("GET")
+	//r.HandleFunc("/movies", createMovieEndPoint).Methods("POST")
+	r.HandleFunc("/movies", createMultipleMovieEndPoint).Methods("POST")
 	r.HandleFunc("/movies/{id}", updateMovieEndPoint).Methods("PUT")
 	r.HandleFunc("/movies/{id}", deleteMovieEndPoint).Methods("DELETE")
-	r.HandleFunc("/movies/{id}", findMovieEndpoint).Methods("GET")
+
 	if err := http.ListenAndServe(":3000", r); err != nil {
 		log.Fatal(err)
 	}
