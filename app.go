@@ -139,7 +139,17 @@ func updateMovieEndPoint(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
 	id, _ := primitive.ObjectIDFromHex(params["id"])
 	var movie models.Movie
-	_ = json.NewDecoder(request.Body).Decode(&movie)
+	err := json.NewDecoder(request.Body).Decode(&movie)
+	if err != nil {
+		response.WriteHeader(http.StatusBadRequest)
+		res := models.Response{Status: http.StatusBadRequest, StatusCode: 1, Message: err.Error()}
+		json.NewEncoder(response).Encode(res)
+		log.Println(err)
+		return
+	}
+	movie.UpdatedBy = "system"
+	timeNow := time.Now()
+	movie.UpdatedDate = &timeNow
 	collection := client.Database(conf.Database).Collection("movie")
 	filter := bson.D{{"_id", id}}
 	update := bson.D{
@@ -147,7 +157,7 @@ func updateMovieEndPoint(response http.ResponseWriter, request *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := collection.UpdateOne(ctx, filter, update)
+	_, err = collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		response.WriteHeader(http.StatusBadRequest)
 		res := models.Response{Status: http.StatusBadRequest, StatusCode: 1, Message: err.Error()}
