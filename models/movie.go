@@ -8,7 +8,7 @@ import (
 
 // Movie is representation of movie entity in mongodb
 type Movie struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	ID          *primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	Name        string             `bson:"name,omitempty" json:"name,omitempty"`
 	Description string             `bson:"description,omitempty" json:"description,omitempty"`
 	CreatedDate *time.Time         `bson:"created_date,omitempty" json:"created_date,omitempty"`

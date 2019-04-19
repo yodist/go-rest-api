@@ -111,6 +111,11 @@ func createMultipleMovieEndPoint(response http.ResponseWriter, request *http.Req
 	}
 	var moviesInterface []interface{}
 	for _, movie := range movies {
+		if movie.CreatedBy == "" {
+			movie.CreatedBy = "system"
+		}
+		timeNow := time.Now()
+		movie.CreatedDate = &timeNow
 		moviesInterface = append(moviesInterface, movie)
 	}
 	collection := client.Database(conf.Database).Collection("movie")
