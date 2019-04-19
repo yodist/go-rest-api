@@ -79,6 +79,11 @@ func createMovieEndPoint(response http.ResponseWriter, request *http.Request) {
 	var movie models.Movie
 	err := json.NewDecoder(request.Body).Decode(&movie)
 	collection := client.Database(conf.Database).Collection("movie")
+	if movie.CreatedBy == "" {
+		movie.CreatedBy = "system"
+	}
+	timeNow := time.Now()
+	movie.CreatedDate = &timeNow
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, err = collection.InsertOne(ctx, movie)
